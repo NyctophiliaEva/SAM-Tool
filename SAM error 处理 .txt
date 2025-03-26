@@ -1,0 +1,7 @@
+若出现：
+
+image_name = self.coco_json["images"][image_id]["file_name"]
+IndexError: list index out of range
+
+排除error：
+salt/dataset_explorer.py 中，添加“.jpeg”支持

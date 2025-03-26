@@ -1,0 +1,27 @@
+cd "F:\CodePython\CodeDCNN\SAM_SegTool"
+
+在segment-anythong项目中，新建文件夹:
+myDataset\images 	# 存放原始图片，支持png、jpg、jpeg
+myDataset\embeddings	# 空文件夹
+
+>>> Terminal A >>>
+# 首先进入项目路径，激活 PyTorch conda 环境
+# 此conda环境依赖变更：protobuf-3.19.6 -> 3.20.2
+cd segment-anything
+conda activate DCNN_PyTch_39
+# 顺序执行
+python .\helpers\extract_embeddings.py --checkpoint-path sam_vit_h_4b8939.pth --dataset-folder .\myDataset
+python helpers\generate_onnx.py --checkpoint-path sam_vit_h_4b8939.pth --onnx-model-path .\sam_onnx.onnx
+
+在 SAM-Tool 项目中，将 sam_onnx.onnx 拷贝至主目录；将 myDataset 拷贝至主目录
+
+>>> Terminal B >>>
+# 首先进入项目路径，激活 SAM 环境（由主目录 environment_v2.yaml 构建）
+cd SAM-Tool
+conda activate SAM_SegTool_38
+# 执行以下命令（categories 跟据需要变更）
+python segment_anything_annotator.py --onnx-model-path sam_onnx.onnx --dataset-path .\myDataset --categories latch
+# 检验生成的COCO标注
+python cocoviewer.py -i .\myDataset -a .\myDataset\annotations.json
+# （可选）若报错，需要安装此依赖
+pip install PyQt5
