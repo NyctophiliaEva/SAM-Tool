@@ -102,7 +102,7 @@ class DatasetExplorer:
         self.dataset_folder = dataset_folder
         self.image_names = os.listdir(os.path.join(self.dataset_folder, "images"))
         self.image_names = [
-            os.path.split(name)[1] for name in self.image_names if name.endswith(".jpg") or name.endswith(".png")
+            os.path.split(name)[1] for name in self.image_names if name.endswith(".jpg") or name.endswith(".png") or name.endswith(".jpeg")
         ]
         self.coco_json_path = coco_json_path
         if not os.path.exists(coco_json_path):
