@@ -5,7 +5,11 @@ from pycocotools import mask as coco_mask
 class DisplayUtils:
     def __init__(self):
         self.transparency = 0.3
-        self.box_width = 2
+        # 让边框与文字更淡
+        self.box_width = 1
+        self.label_font_scale = 0.7  # 原先约 1.5
+        self.label_thickness = 1     # 原先 5
+        self.label_bg_alpha = 0.25   # 文字背景半透明强度（0~1）
 
     def increase_transparency(self):
         self.transparency = min(1.0, self.transparency + 0.05)
@@ -36,22 +40,33 @@ class DisplayUtils:
         mask = np.logical_not(mask)
         return mask
 
-    def draw_box_on_image(self, image, categories, ann, color):
+    def draw_box_on_image(self, image, categories, ann, color, draw_label=True):
         x, y, w, h = ann["bbox"]
         x, y, w, h = int(x), int(y), int(w), int(h)
+        # 边框更细，降低突兀感
         image = cv2.rectangle(image, (x, y), (x + w, y + h), color, self.box_width)
 
-        text = '{} {}'.format(ann["id"],categories[ann["category_id"]])
-        txt_color = (0, 0, 0) if np.mean(color) > 127 else (255, 255, 255)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        txt_size = cv2.getTextSize(text, font, 1.5, 1)[0]
-        cv2.rectangle(image, (x, y + 1), (x + txt_size[0] + 1, y + int(1.5*txt_size[1])), color, -1)
-        cv2.putText(image, text, (x, y + txt_size[1]), font, 1.5, txt_color, thickness=5)
+        if draw_label:
+            text = '{} {}'.format(ann["id"],categories[ann["category_id"]])
+            txt_color = (0, 0, 0) if np.mean(color) > 127 else (255, 255, 255)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            # 减小字号、减小厚度
+            txt_size, _ = cv2.getTextSize(text, font, self.label_font_scale, self.label_thickness)
+            # 绘制半透明背景矩形
+            overlay = image.copy()
+            x2 = x + txt_size[0] + 6
+            y2 = y + int(1.6 * txt_size[1])
+            cv2.rectangle(overlay, (x, y + 1), (x2, y2), color, -1)
+            image = cv2.addWeighted(overlay, self.label_bg_alpha, image, 1 - self.label_bg_alpha, 0)
+            # 绘制更小更细的文字
+            cv2.putText(image, text, (x + 3, y + int(1.1 * txt_size[1])), font, self.label_font_scale, txt_color, thickness=self.label_thickness, lineType=cv2.LINE_AA)
         return image
 
-    def draw_annotations(self, image, categories, annotations, colors):
+    def draw_annotations(self, image, categories, annotations, colors, visible_label_ids=None):
+        show_all = visible_label_ids is None
         for ann, color in zip(annotations, colors):
-            image = self.draw_box_on_image(image, categories, ann, color)
+            draw_label = show_all or (ann.get("id") in visible_label_ids)
+            image = self.draw_box_on_image(image, categories, ann, color, draw_label=draw_label)
             mask = self.__convert_ann_to_mask(ann, image.shape[0], image.shape[1])
             image = self.overlay_mask_on_image(image, mask, color)
         return image

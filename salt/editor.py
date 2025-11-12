@@ -57,6 +57,8 @@ class Editor:
         ) = self.dataset_explorer.get_image_data(self.image_id)
         self.display = self.image_bgr.copy()
         self.du = DisplayUtils()
+        self.hover_ann_ids = set()
+        self.hover_mode_enabled = True  # 是否启用“仅悬停显示文字”模式
         self.reset()
 
     # ---- 图片导航与信息接口 ----
@@ -92,17 +94,97 @@ class Editor:
         anns, colors = self.dataset_explorer.get_annotations(
             self.image_id, return_colors=True
         )
-        self.display = self.du.draw_annotations(self.display, self.categories, anns, colors)
+        if self.hover_mode_enabled:
+            # 仅在悬停时显示文字
+            self.display = self.du.draw_annotations(
+                self.display, self.categories, anns, colors, visible_label_ids=self.hover_ann_ids
+            )
+        else:
+            # 显示全部标签
+            self.display = self.du.draw_annotations(
+                self.display, self.categories, anns, colors, visible_label_ids=None
+            )
 
     def reset(self, hard=True):
         self.curr_inputs.reset_inputs()
         self.display = self.image_bgr.copy()
+        # 清除悬停状态
+        self.hover_ann_ids = set()
         if self.show_other_anns:
             self.draw_known_annotations()
 
     def toggle(self):
         self.show_other_anns = not self.show_other_anns
         self.reset()
+
+    def toggle_hover_mode(self):
+        self.hover_mode_enabled = not self.hover_mode_enabled
+        # 切换模式后需要强制刷新显示（重新绘制标签）
+        self.display = self.image_bgr.copy()
+        if self.show_other_anns:
+            self.draw_known_annotations()
+        # 如果存在交互点或掩膜，叠加回去
+        if len(self.curr_inputs.input_point) != 0:
+            self.display = self.du.draw_points(
+                self.display, self.curr_inputs.input_point, self.curr_inputs.input_label
+            )
+        if self.curr_inputs.curr_mask is not None:
+            self.display = self.du.overlay_mask_on_image(self.display, self.curr_inputs.curr_mask)
+
+    def update_hover(self, x: int, y: int, margin: int = 6):
+        """根据鼠标位置更新悬停的标注id，仅在接近时显示文字。
+        规则：若点落在某个bbox的扩展区域（margin像素）内，选取距离中心最近的一个ann显示。
+        返回值：是否发生变化（用于减少不必要的刷新）。
+        """
+        if not self.hover_mode_enabled:
+            # 模式关闭时不更新悬停状态
+            if len(self.hover_ann_ids) != 0:
+                self.hover_ann_ids = set()
+                self.display = self.image_bgr.copy()
+                if self.show_other_anns:
+                    self.draw_known_annotations()
+                if len(self.curr_inputs.input_point) != 0:
+                    self.display = self.du.draw_points(
+                        self.display, self.curr_inputs.input_point, self.curr_inputs.input_label
+                    )
+                if self.curr_inputs.curr_mask is not None:
+                    self.display = self.du.overlay_mask_on_image(self.display, self.curr_inputs.curr_mask)
+                return True
+            return False
+        anns = self.dataset_explorer.get_annotations(self.image_id)
+        if len(anns) == 0:
+            changed = len(self.hover_ann_ids) != 0
+            self.hover_ann_ids = set()
+            return changed
+        # 选择候选
+        candidates = []
+        for ann in anns:
+            bx, by, bw, bh = ann["bbox"]
+            bx, by, bw, bh = int(bx), int(by), int(bw), int(bh)
+            if (bx - margin) <= x <= (bx + bw + margin) and (by - margin) <= y <= (by + bh + margin):
+                cx, cy = bx + bw / 2.0, by + bh / 2.0
+                dist2 = (x - cx) ** 2 + (y - cy) ** 2
+                candidates.append((dist2, ann["id"]))
+        new_hover = set()
+        if candidates:
+            candidates.sort(key=lambda t: t[0])
+            new_hover.add(candidates[0][1])
+        changed = new_hover != self.hover_ann_ids
+        if not changed:
+            return False
+        self.hover_ann_ids = new_hover
+        # 重绘显示（保留当前点击点和当前mask）
+        self.display = self.image_bgr.copy()
+        if self.show_other_anns:
+            self.draw_known_annotations()
+        # 重新叠加用户当前交互
+        if len(self.curr_inputs.input_point) != 0:
+            self.display = self.du.draw_points(
+                self.display, self.curr_inputs.input_point, self.curr_inputs.input_label
+            )
+        if self.curr_inputs.curr_mask is not None:
+            self.display = self.du.overlay_mask_on_image(self.display, self.curr_inputs.curr_mask)
+        return True
     
     def step_up_transparency(self):
         self.du.increase_transparency()

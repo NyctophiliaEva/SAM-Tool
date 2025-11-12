@@ -24,6 +24,9 @@ class CustomGraphicsView(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
         self.setInteractive(True)
+        # 启用鼠标移动追踪（无需按键按下）
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
 
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
@@ -67,6 +70,20 @@ class CustomGraphicsView(QGraphicsView):
             label = 0        
         self.editor.add_click([int(x), int(y)], label)
         self.imshow(self.editor.display)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self.image_item is None:
+            return
+        pos = event.pos()
+        pos_in_item = self.mapToScene(pos) - self.image_item.pos()
+        x, y = int(pos_in_item.x()), int(pos_in_item.y())
+        # 仅当坐标在图像范围内时处理
+        if x < 0 or y < 0:
+            return
+        # 更新悬停并按需刷新
+        changed = self.editor.update_hover(x, y)
+        if changed:
+            self.imshow(self.editor.display)
     
 class ApplicationInterface(QWidget):
     def __init__(self, app, editor, panel_size=(1920, 1080)):
@@ -154,6 +171,10 @@ class ApplicationInterface(QWidget):
         top_bar = QWidget()
         button_layout = QHBoxLayout(top_bar)
         self.layout.addLayout(button_layout)
+        # 放大菜单栏字体
+        font = top_bar.font()
+        font.setPointSize(14)  # 你可以改为更大/更小，如 12/16
+        top_bar.setFont(font)
         buttons = [
             ("添加对象", lambda: self.add()),
             ("撤销对象", lambda: self.delet()),
@@ -161,6 +182,7 @@ class ApplicationInterface(QWidget):
             ("前一张", lambda: self.prev_image()),
             ("下一张", lambda: self.next_image()),
             ("显示已标注信息", lambda: self.toggle()),
+            ("悬停显示标签: 开", lambda: self.toggle_hover_mode()),
             ("调高透明度", lambda: self.transparency_up()),
             ("调低透明度", lambda: self.transparency_down()),
             ("保存", lambda: self.save_all()), 
@@ -168,6 +190,7 @@ class ApplicationInterface(QWidget):
         for button, lmb in buttons:
             bt = QPushButton(button)
             bt.clicked.connect(lmb)
+            bt.setMinimumHeight(34)
             button_layout.addWidget(bt)
 
         # 跳页控件与当前信息
@@ -198,6 +221,10 @@ class ApplicationInterface(QWidget):
     def get_side_panel(self):
         panel = QWidget()
         panel_layout = QVBoxLayout(panel)
+        # 放大侧栏字体
+        font = panel.font()
+        font.setPointSize(14)
+        panel.setFont(font)
         categories = self.editor.get_categories()
         for category in categories:
             # label = QPushButton(category)
@@ -205,6 +232,7 @@ class ApplicationInterface(QWidget):
             # panel_layout.addWidget(label)
 
             label = QRadioButton(category)
+            label.setMinimumHeight(28)
             # sender传入点击的字符
             label.toggled.connect(lambda: self.editor.select_category(self.sender().text()))
             panel_layout.addWidget(label)
@@ -243,6 +271,18 @@ class ApplicationInterface(QWidget):
         # elif event.key() == Qt.Key_Space:
         #     # Do something if the space bar is pressed
         #     pass
+
+    def toggle_hover_mode(self):
+        # 切换 Editor 的悬停模式
+        prev = self.editor.hover_mode_enabled
+        self.editor.toggle_hover_mode()
+        # 更新按钮文字（找到该按钮并修改文本）
+        sender = self.sender()
+        if isinstance(sender, QPushButton):
+            now = self.editor.hover_mode_enabled
+            sender.setText("悬停显示标签: 开" if now else "悬停显示标签: 关")
+        # 刷新视图
+        self._refresh_view()
 
     def jump_to_index(self):
         total = self.editor.get_image_count()
