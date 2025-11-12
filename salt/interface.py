@@ -1,8 +1,9 @@
 import cv2
+import os
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QGraphicsView, QGraphicsScene
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QWheelEvent, QMouseEvent
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtWidgets import QPushButton, QRadioButton, QVBoxLayout, QHBoxLayout, QWidget, QLabel
+from PyQt5.QtWidgets import QPushButton, QRadioButton, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QSpinBox, QInputDialog
 
 class CustomGraphicsView(QGraphicsView):
     def __init__(self, editor):
@@ -93,41 +94,58 @@ class ApplicationInterface(QWidget):
         self.setLayout(self.layout)
 
         self.graphics_view.imshow(self.editor.display)
+        # 初始化顶部信息
+        self._update_info_label()
+
+    def _update_info_label(self):
+        total = self.editor.get_image_count()
+        if total == 0:
+            if hasattr(self, "info_label"):
+                self.info_label.setText("无图片")
+            return
+        idx = self.editor.get_current_index()
+        name = self.editor.get_current_filename()
+        if hasattr(self, "info_label"):
+            self.info_label.setText(f"{idx+1}/{total}: {name}")
+
+    def _refresh_view(self):
+        self.graphics_view.imshow(self.editor.display)
+        self._update_info_label()
     
     def reset(self):
         self.editor.reset()
-        self.graphics_view.imshow(self.editor.display)    
+        self._refresh_view()    
 
     def add(self):
         self.editor.save_ann()
         self.editor.reset()
-        self.graphics_view.imshow(self.editor.display)    
+        self._refresh_view()    
 
     def delet(self):
         self.editor.delet_ann()
         self.editor.reset()
-        self.graphics_view.imshow(self.editor.display)   
+        self._refresh_view()   
         
     def next_image(self):
         self.editor.next_image()
-        self.graphics_view.imshow(self.editor.display)
+        self._refresh_view()
         self.editor.save()
 
     def prev_image(self):
         self.editor.prev_image()
-        self.graphics_view.imshow(self.editor.display)    
+        self._refresh_view()    
 
     def toggle(self):
         self.editor.toggle()
-        self.graphics_view.imshow(self.editor.display)    
+        self._refresh_view()    
 
     def transparency_up(self):
         self.editor.step_up_transparency()
-        self.graphics_view.imshow(self.editor.display)
+        self._refresh_view()
 
     def transparency_down(self):
         self.editor.step_down_transparency()
-        self.graphics_view.imshow(self.editor.display)
+        self._refresh_view()
     
     def save_all(self):
         self.editor.save()
@@ -151,6 +169,29 @@ class ApplicationInterface(QWidget):
             bt = QPushButton(button)
             bt.clicked.connect(lmb)
             button_layout.addWidget(bt)
+
+        # 跳页控件与当前信息
+        button_layout.addStretch(1)
+
+        # 信息标签
+        self.info_label = QLabel("")
+        button_layout.addWidget(self.info_label)
+
+        # 跳转到序号（1-based）
+        jump_label = QLabel(" 跳到序号: ")
+        button_layout.addWidget(jump_label)
+
+        self.jump_spin = QSpinBox()
+        total = self.editor.get_image_count()
+        self.jump_spin.setMinimum(1)
+        self.jump_spin.setMaximum(max(1, total))
+        self.jump_spin.setValue(self.editor.get_current_index() + 1)
+        button_layout.addWidget(self.jump_spin)
+
+        self.jump_btn = QPushButton("跳转")
+        self.jump_btn.clicked.connect(self.jump_to_index)
+        self.jump_spin.editingFinished.connect(self.jump_to_index)
+        button_layout.addWidget(self.jump_btn)
 
         return top_bar
 
@@ -176,6 +217,10 @@ class ApplicationInterface(QWidget):
             self.prev_image()
         if event.key() == Qt.Key_D:
             self.next_image()
+        if event.key() == Qt.Key_PageUp:
+            self.prev_image()
+        if event.key() == Qt.Key_PageDown:
+            self.next_image()
         if event.key() == Qt.Key_K:
             self.transparency_down()
         if event.key() == Qt.Key_L:
@@ -188,6 +233,26 @@ class ApplicationInterface(QWidget):
             self.save_all()
         if event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_Z:
             self.delet()
+        if event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_G:
+            total = self.editor.get_image_count()
+            if total > 0:
+                val, ok = QInputDialog.getInt(self, "跳转", f"输入序号 (1 - {total})", value=self.editor.get_current_index()+1, min=1, max=total)
+                if ok:
+                    self.jump_spin.setValue(val)
+                    self.jump_to_index()
         # elif event.key() == Qt.Key_Space:
         #     # Do something if the space bar is pressed
         #     pass
+
+    def jump_to_index(self):
+        total = self.editor.get_image_count()
+        if total == 0:
+            return
+        idx_1 = self.jump_spin.value()
+        self.editor.go_to_image(idx_1 - 1)
+        # 同步范围与视图
+        self.jump_spin.blockSignals(True)
+        self.jump_spin.setMaximum(max(1, self.editor.get_image_count()))
+        self.jump_spin.setValue(self.editor.get_current_index() + 1)
+        self.jump_spin.blockSignals(False)
+        self._refresh_view()

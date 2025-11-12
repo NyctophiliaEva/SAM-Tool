@@ -1,6 +1,6 @@
 cd "F:\CodePython\CodeDCNN\SAM_SegTool"
 
-在segment-anythong项目中，新建文件夹:
+在segment-anything项目中，新建文件夹:
 myDataset\images 	# 存放原始图片，支持png、jpg、jpeg
 myDataset\embeddings	# 空文件夹
 
@@ -19,8 +19,11 @@ python helpers\generate_onnx.py --checkpoint-path sam_vit_h_4b8939.pth --onnx-mo
 # 首先进入项目路径，激活 SAM 环境（由主目录 environment_v2.yaml 构建）
 cd SAM-Tool
 conda activate SAM_SegTool_38
+
 # 执行以下命令（categories 跟据需要变更）
 python segment_anything_annotator.py --onnx-model-path sam_onnx.onnx --dataset-path .\myDataset --categories latch
+# 替换命令
+python segment_anything_annotator.py --onnx-model-path sam_onnx.onnx --dataset-path .\myDataset --categories keyA,keyB,pegA,pegB,+,-,gripper,tarkeyA,tarkeyB,tarpegA,tarpegB,tar+,tar-
 # 检验生成的COCO标注
 python cocoviewer.py -i .\myDataset -a .\myDataset\annotations.json
 # （可选）若报错，需要安装此依赖

@@ -133,3 +133,5 @@ dmypy.json
 
 # Dataset
 dataset/
+myDataset**
+myDataset

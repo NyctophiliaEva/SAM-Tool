@@ -59,6 +59,17 @@ class Editor:
         self.du = DisplayUtils()
         self.reset()
 
+    # ---- 图片导航与信息接口 ----
+    def get_image_count(self):
+        return self.dataset_explorer.get_num_images()
+
+    def get_current_index(self):
+        return self.image_id
+
+    def get_current_filename(self):
+        image_name = self.dataset_explorer.coco_json["images"][self.image_id]["file_name"]
+        return os.path.basename(image_name)
+
     def add_click(self, new_pt, new_label):
         self.curr_inputs.add_input_click(new_pt, new_label)
         masks, low_res_logits = self.onnx_helper.call(
@@ -128,6 +139,24 @@ class Editor:
         if self.image_id == 0:
             return
         self.image_id -= 1
+        (
+            self.image,
+            self.image_bgr,
+            self.image_embedding,
+        ) = self.dataset_explorer.get_image_data(self.image_id)
+        self.display = self.image_bgr.copy()
+        self.reset()
+
+    def go_to_image(self, idx: int):
+        if self.dataset_explorer.get_num_images() == 0:
+            return
+        # 边界裁剪
+        idx = max(0, min(idx, self.dataset_explorer.get_num_images() - 1))
+        if idx == self.image_id:
+            # 即使相同索引，也执行重置以确保显示一致
+            self.reset()
+            return
+        self.image_id = idx
         (
             self.image,
             self.image_bgr,
