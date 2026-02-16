@@ -182,7 +182,7 @@ class ApplicationInterface(QWidget):
             ("前一张", lambda: self.prev_image()),
             ("下一张", lambda: self.next_image()),
             ("显示已标注信息", lambda: self.toggle()),
-            ("悬停显示标签: 开", lambda: self.toggle_hover_mode()),
+            ("悬停显示标签: 关", lambda: self.toggle_hover_mode()),
             ("调高透明度", lambda: self.transparency_up()),
             ("调低透明度", lambda: self.transparency_down()),
             ("保存", lambda: self.save_all()), 

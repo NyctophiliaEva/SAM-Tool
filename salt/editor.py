@@ -58,7 +58,7 @@ class Editor:
         self.display = self.image_bgr.copy()
         self.du = DisplayUtils()
         self.hover_ann_ids = set()
-        self.hover_mode_enabled = True  # 是否启用“仅悬停显示文字”模式
+        self.hover_mode_enabled = False  # 是否启用“仅悬停显示文字”模式
         self.reset()
 
     # ---- 图片导航与信息接口 ----
