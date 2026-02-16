@@ -24,6 +24,7 @@ conda activate SAM_SegTool_38
 python segment_anything_annotator.py --onnx-model-path sam_onnx.onnx --dataset-path .\myDataset --categories latch
 # 替换命令
 python segment_anything_annotator.py --onnx-model-path sam_onnx.onnx --dataset-path .\myDataset --categories keyA,keyB,pegA,pegB,+,-,gripper,tarkeyA,tarkeyB,tarpegA,tarpegB,tar+,tar-
+python segment_anything_annotator.py --onnx-model-path sam_onnx.onnx --dataset-path .\myDataset --categories BG,pegA,pegB,pegC,gearA,gearB,gearC,screw,gripper,tarA,tarB,tarC
 # 检验生成的COCO标注
 python cocoviewer.py -i .\myDataset -a .\myDataset\annotations.json
 # （可选）若报错，需要安装此依赖
