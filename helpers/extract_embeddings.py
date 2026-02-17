@@ -18,6 +18,9 @@ def main(checkpoint_path, model_type, device, images_folder, embeddings_folder):
     for image_name in tqdm(os.listdir(images_folder)):
         image_path = os.path.join(images_folder, image_name)
         image = cv2.imread(image_path)
+        if image is None:
+            # Skip non-image or unreadable files to avoid cvtColor assertion failure.
+            continue
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
