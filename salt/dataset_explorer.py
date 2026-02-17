@@ -162,7 +162,14 @@ class DatasetExplorer:
         self.annotations_by_image_id[image_id].append(annotation)
     
     def __delet_to_our_annotation_dict(self, image_id):
-        self.annotations_by_image_id[image_id].pop(-1)
+        if image_id not in self.annotations_by_image_id:
+            return None
+        if len(self.annotations_by_image_id[image_id]) == 0:
+            return None
+        ann = self.annotations_by_image_id[image_id].pop(-1)
+        if len(self.annotations_by_image_id[image_id]) == 0:
+            del self.annotations_by_image_id[image_id]
+        return ann
 
     def get_annotations(self, image_id, return_colors=False):
         if image_id not in self.annotations_by_image_id:
@@ -184,9 +191,18 @@ class DatasetExplorer:
         self.global_annotation_id += 1
 
     def delet_annotation(self, image_id):
-        self.__delet_to_our_annotation_dict(image_id)
-        self.coco_json["annotations"].pop(-1)
-        self.global_annotation_id -= 1
+        ann = self.__delet_to_our_annotation_dict(image_id)
+        if ann is None:
+            return False
+        ann_id = ann.get("id")
+        if ann_id is None:
+            return False
+        # Remove the matching annotation from the global list (not necessarily last).
+        for idx in range(len(self.coco_json["annotations"]) - 1, -1, -1):
+            if self.coco_json["annotations"][idx].get("id") == ann_id:
+                del self.coco_json["annotations"][idx]
+                break
+        return True
 
     def save_annotation(self):
         with open(self.coco_json_path, "w") as f:
